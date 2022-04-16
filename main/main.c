@@ -129,9 +129,26 @@ static void gpio_task(void *arg)
             gpio_set_level(GPIO_OUTPUT, 1);
         }
         else {
-            // timeout - no wiggles, resume normal brightness.
-            ESP_LOGI(TAG, "Timeout waiting for edge - turning off output.\n");
-            gpio_set_level(GPIO_OUTPUT, 0);
+            // timeout - no wiggles
+            ESP_LOGI(TAG, "Timeout waiting for edge\n");
+
+            if (gpio_get_level(GPIO_INPUT) == 0) {
+                ESP_LOGI(TAG,
+                         "No edges and input is low - turning off output.\n");
+
+                // No PWM and the signal is 0, which means the lights are off -
+                // turn the radio dimmer signal off too.
+                gpio_set_level(GPIO_OUTPUT, 0);
+            }
+            else {
+                ESP_LOGI(TAG,
+                         "No edges and input is high - turning off output.\n");
+
+                // No PWM and the signal is 1, which means the lights are on but
+                // the console is at full brightness, so turn the radio dimmer
+                // on.
+                gpio_set_level(GPIO_OUTPUT, 1);
+            }
         }
     }
 }
