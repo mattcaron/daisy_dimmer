@@ -118,11 +118,13 @@ static void gpio_task(void *arg)
 {
     uint8_t edge;
 
+    ESP_LOGI(TAG, "Monitoring for PWM input.");
+
     while(1) {
         if (xQueueReceive(gpio_queue, &edge, 1000 / portTICK_PERIOD_MS)) {
             // received an edge
             ESP_LOGI(TAG,
-                     "Got an edge (level is %d) - turning on output.\n",
+                     "Got an edge (level is %d) - turning on output.",
                      gpio_get_level(GPIO_INPUT));
 
             // we got some wiggles, set output high to dim the radio
@@ -130,11 +132,11 @@ static void gpio_task(void *arg)
         }
         else {
             // timeout - no wiggles
-            ESP_LOGI(TAG, "Timeout waiting for edge\n");
+            ESP_LOGI(TAG, "Timeout waiting for edge.");
 
             if (gpio_get_level(GPIO_INPUT) == 0) {
                 ESP_LOGI(TAG,
-                         "No edges and input is low - turning off output.\n");
+                         "No edges and input is low - turning off output.");
 
                 // No PWM and the signal is 0, which means the lights are off -
                 // turn the radio dimmer signal off too.
@@ -142,7 +144,7 @@ static void gpio_task(void *arg)
             }
             else {
                 ESP_LOGI(TAG,
-                         "No edges and input is high - turning off output.\n");
+                         "No edges and input is high - turning off output.");
 
                 // No PWM and the signal is 1, which means the lights are on but
                 // the console is at full brightness, so turn the radio dimmer
