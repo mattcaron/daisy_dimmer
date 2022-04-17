@@ -99,9 +99,21 @@ void app_main(void)
     // start gpio task
     xTaskCreate(gpio_task, "gpio_task", 2048, NULL, GPIO_TASK_PRIORITY, NULL);
 
+#if 0
     // register the GPIO handler
-    gpio_isr_register(gpio_isr_handler, NULL, 0, NULL);
+    ESP_ERROR_CHECK(gpio_isr_register(gpio_isr_handler, NULL, 0, NULL));
+#else
+    // alternative version of above.
 
+    // The above doesn't seem to work. This does. Not sure why, but this works,
+    // so we're using it.
+
+    // install gpio ISR service
+    ESP_ERROR_CHECK(gpio_install_isr_service(0));
+
+    // add the ISR handler for our input pin
+    ESP_ERROR_CHECK(gpio_isr_handler_add(GPIO_INPUT, gpio_isr_handler, NULL));
+#endif
     // At this point, we're done, and gpio_task takes over.
 }
 
