@@ -28,3 +28,9 @@ Thanks to Benjamin von Deschwanden for his
 [ESP32 Signal Generator](https://github.com/vdeschwb/esp32-signal-generator)
 project. It was handy to not have to do that work myself to make a test
 fixture. Thanks to him for sharing.
+
+## Timing diagram
+
+Captured via [PulseView](https://sigrok.org/wiki/PulseView).
+
+![Timing Diagram](timing_diagram.png)
