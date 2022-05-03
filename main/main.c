@@ -35,6 +35,16 @@ static const char *TAG = "main";
 
 #define GPIO_TASK_PRIORITY  ((UBaseType_t)(configMAX_PRIORITIES - 1))
 
+// How many edges we need to get in NOISE_DETECT_TIME_MS to turn on the output.
+#define NOISE_EDGE_COUNT 5
+
+// We need to get NOISE_EDGE_COUNT rising edges within this time period to turn
+// on the output. Otherwise, we discard event and go back to sleep.
+#define NOISE_DETECT_TIME_MS 10
+
+// Time after which we turn the output off if we see no pulses
+#define INACTIVITY_TIME_MS 1000
+
 static xQueueHandle gpio_queue = NULL;
 
 static void gpio_task(void *arg);
@@ -74,13 +84,13 @@ void app_main(void)
     ESP_ERROR_CHECK(gpio_config(&output_conf));
 
     // input GPIO config
-    // - interrupt on any edge
+    // - interrupt on rising edge
     // - pin 5 only
     // - input only
     // - pull down
     // - no pull up
     gpio_config_t input_conf = {
-        .intr_type = GPIO_INTR_ANYEDGE,
+        .intr_type = GPIO_INTR_POSEDGE,
         .pin_bit_mask = GPIO_Pin_5,
         .mode = GPIO_MODE_INPUT,
         .pull_down_en = GPIO_PULLDOWN_ENABLE,
@@ -129,22 +139,61 @@ void app_main(void)
 static void gpio_task(void *arg)
 {
     uint8_t edge;
+    TickType_t first_edge_time_ticks = 0;
+    uint8_t edge_count = 0;
+    bool stay_on = false;
 
     ESP_LOGI(TAG, "Monitoring for PWM input.");
 
     while(1) {
-        if (xQueueReceive(gpio_queue, &edge, 1000 / portTICK_PERIOD_MS)) {
-            // received an edge
-            ESP_LOGI(TAG,
-                     "Got an edge (level is %d) - turning on output.",
-                     gpio_get_level(GPIO_INPUT));
+        if (xQueueReceive(gpio_queue,
+                          &edge,
+                          INACTIVITY_TIME_MS / portTICK_PERIOD_MS)) {
 
-            // we got some wiggles, set output high to dim the radio
-            gpio_set_level(GPIO_OUTPUT, 1);
+            // received an edge
+            ESP_LOGI(TAG, "Got an edge.");
+
+            if (!stay_on) {
+                // record our first edge
+                if (first_edge_time_ticks == 0) {
+                    first_edge_time_ticks = xTaskGetTickCount();
+                    edge_count = 1;
+                }
+                else if (edge_count >= NOISE_EDGE_COUNT) {
+                    // okay, we've counted enough edges - but did they happen //
+                    // fast enough?
+                    if (xTaskGetTickCount() - first_edge_time_ticks <
+                        NOISE_DETECT_TIME_MS / portTICK_PERIOD_MS) {
+
+                        ESP_LOGI(TAG,
+                                "Got enough edges fast enough, "
+                                "turning on output");
+
+                        gpio_set_level(GPIO_OUTPUT, 1);
+                        stay_on = true;
+                    }
+                    else {
+                        // we have enough edges, but they were too slow - must
+                        // just be noise - reset everything and start over.
+                        first_edge_time_ticks = 0;
+                        edge_count = 0;
+                    }
+                }
+                else {
+                    // else not enough edges yet - count this one and keep going
+                    ++edge_count;
+                }
+            }
+            // else - we've detected that it's real PWM and not noise, just
+            // leave the output alone until we time out from lack of edges.
         }
         else {
             // timeout - no wiggles
             ESP_LOGI(TAG, "Timeout waiting for edge.");
+
+            first_edge_time_ticks = 0;
+            edge_count = 0;
+            stay_on = false;
 
             if (gpio_get_level(GPIO_INPUT) == 0) {
                 ESP_LOGI(TAG,
