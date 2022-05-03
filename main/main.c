@@ -40,7 +40,7 @@ static xQueueHandle gpio_queue = NULL;
 static void gpio_task(void *arg);
 
 /**
- * ISR handler - submit that we got ann edge to the queue
+ * ISR handler - submit that we got an edge to the queue
  * 
  * @param arg ISR argument. Ignored.
  */
@@ -156,7 +156,7 @@ static void gpio_task(void *arg)
             }
             else {
                 ESP_LOGI(TAG,
-                         "No edges and input is high - turning off output.");
+                         "No edges and input is high - turning on output.");
 
                 // No PWM and the signal is 1, which means the lights are on but
                 // the console is at full brightness, so turn the radio dimmer
